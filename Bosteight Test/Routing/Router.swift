@@ -14,9 +14,14 @@ enum AppFlow: Hashable {
 }
 
 enum FlowDestination: Hashable {
-    case showMedia
-    case showVideoCompressor
     
+    // MARK: Video Compressor
+    case videoCompressorList
+    case videoCompressorDetail(assetID: String)
+    
+    // MARK: Media
+    case mediaHome
+    case mediaCategory(MediaSubcategory)
 }
 // MARK: 2. Define protocol
 @MainActor protocol Routing: AnyObject {

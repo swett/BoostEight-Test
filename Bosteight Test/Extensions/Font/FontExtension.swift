@@ -35,6 +35,7 @@ extension Font {
     static let sfRegular16: Font = .system(size: 16, weight: .regular)
     static let sfRegular15: Font = .system(size: 15, weight: .regular)
     static let sfRegular14: Font = .system(size: 14, weight: .regular)
+    static let sfRegular13: Font = .system(size: 13, weight: .regular)
     static let sfRegular12: Font = .system(size: 12, weight: .regular)
    
     

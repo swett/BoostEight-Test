@@ -52,7 +52,8 @@ struct ColorTheme {
     let color3B82F6 = Color(hex: "#3B82F6")
     let color8880FF = Color(hex: "#8880FF")
     
-    
+    let color5693F9 = Color(hex: "#5693F9")
+    let color8E8E8E = Color(hex: "#8E8E8E")
    
 }
 
