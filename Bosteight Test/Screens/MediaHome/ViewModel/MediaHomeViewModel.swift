@@ -10,7 +10,7 @@ import Photos
 import SwiftUI
 
 @MainActor
-final class MediaHomeViewModel: ObservableObject {
+final class MediaHomeViewModel: MediaHomeViewModelProtocol  {
     
     // MARK: Dependencies
     
@@ -57,7 +57,7 @@ private extension MediaHomeViewModel {
             title: subcategory.title,
             count: category.count,
             totalSize: category.totalSize,
-            previewAssetIDs: category.previewAssets
+            previewAssetIDs: category.allAssets
                 .prefix(4)
                 .map { $0.localIdentifier }
         )
@@ -88,11 +88,20 @@ extension MediaHomeItem {
     ]
 }
 
-@MainActor
-final class MockMediaHomeViewModel: ObservableObject {
+final class MockMediaHomeViewModel: MediaHomeViewModelProtocol {
+    
     @Published var items: [MediaHomeItem] = MediaHomeItem.mockItems
+    
+    func openCategory(_ subcategory: MediaSubcategory) { }
+    
+    func popBack() { }
+}
 
-    func openCategory(_ subcategory: MediaSubcategory) {
-        print("Navigate to \(subcategory.title)")
-    }
+
+@MainActor
+protocol MediaHomeViewModelProtocol: ObservableObject {
+    var items: [MediaHomeItem] { get }
+    
+    func openCategory(_ subcategory: MediaSubcategory)
+    func popBack()
 }

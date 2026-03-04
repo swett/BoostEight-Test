@@ -10,7 +10,7 @@ import Foundation
 enum MediaSubcategory: Hashable {
     case screenshots, livePhotos, screenRecordings
     case duplicatePhotos, similarPhotos, similarVideos
-
+    
     var title: String {
         switch self {
         case .screenshots:      return "Screenshots"
@@ -21,7 +21,7 @@ enum MediaSubcategory: Hashable {
         case .similarVideos:    return "Similar Videos"
         }
     }
-
+    
     // All subcategories share the same icon — no switch needed
     var iconName: String {
         switch self {
@@ -39,19 +39,36 @@ enum MediaSubcategory: Hashable {
             return "media_icon"
         }
     }
+    
+    
+    
+    var screenType: MediaCategoryScreenType {
+        switch self {
+        case .duplicatePhotos,
+                .similarPhotos,
+                .similarVideos:
+            return .grouped
+            
+        case .livePhotos,
+                .screenshots,
+                .screenRecordings:
+            return .grid
+        }
+    }
+    
 }
 
 enum CategoryType {
     case videoCompressor
     case media(MediaSubcategory?)
-
+    
     var title: String {
         switch self {
         case .videoCompressor:      return "Video Compressor"
         case .media(let sub):       return sub?.title ?? "Media"
         }
     }
-
+    
     var iconName: String {
         switch self {
         case .videoCompressor:      return "video_icon"

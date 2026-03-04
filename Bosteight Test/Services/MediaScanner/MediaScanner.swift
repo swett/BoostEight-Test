@@ -10,84 +10,10 @@ import Photos
 import UIKit
 import AVFoundation
 
-//actor MediaScanner {
-//
-//    private let imageManager = PHCachingImageManager()
-//
-//    // MARK: - PUBLIC
-//
-//    func scan() async -> ScanResult {
-//
-//        let assets = fetchAllAssets()
-//
-//        var totalCount = 0
-//        var totalSize: Int64 = 0
-//        var videoSize: Int64 = 0
-//        var videos: [PHAsset] = []
-//        var photos: [PHAsset] = []
-//
-//        var screenshots: [PHAsset] = []
-//        var livePhotos: [PHAsset] = []
-//        var screenRecordings: [PHAsset] = []
-//
-//        // 1️⃣ Быстрая первичная категоризация
-//        for asset in assets {
-//            totalCount += 1
-//
-//            let size = fastAssetSize(asset)
-//            totalSize += size
-//
-//            switch asset.mediaType {
-//            case .video:
-//                videos.append(asset)
-//                videoSize += size
-//                if isScreenRecording(asset) {
-//                    screenRecordings.append(asset)
-//                }
-//
-//            case .image:
-//                photos.append(asset)
-//
-//                if asset.mediaSubtypes.contains(.photoScreenshot) {
-//                    screenshots.append(asset)
-//                }
-//
-//                if asset.mediaSubtypes.contains(.photoLive) {
-//                    livePhotos.append(asset)
-//                }
-//
-//            default:
-//                break
-//            }
-//        }
-//
-//        // 2️⃣ Дубликаты и похожие фото
-//        let duplicateGroups = await detectDuplicatePhotos(from: photos)
-//        let similarGroups = await detectSimilarPhotos(from: photos)
-//
-//        // 3️⃣ Похожие видео
-//        let similarVideoGroups = detectSimilarVideos(from: videos)
-//
-//        // 4️⃣ Сбор результата
-//        return buildResult(
-//            totalCount: totalCount,
-//            totalSize: totalSize,
-//            videoSize: videoSize,
-//            videos: videos,
-//            screenshots: screenshots,
-//            livePhotos: livePhotos,
-//            screenRecordings: screenRecordings,
-//            duplicateGroups: duplicateGroups,
-//            similarGroups: similarGroups,
-//            similarVideoGroups: similarVideoGroups
-//        )
-//    }
-//}
-
 actor MediaScanner {
     
     private let imageManager = PHCachingImageManager()
-    
+    private let hashEngine = HashEngine()
     private var isCancelled = false
     
     func cancel() {
@@ -96,11 +22,10 @@ actor MediaScanner {
     
     // Главная точка входа
     func scan() -> AsyncStream<(ScanProgress, ScanResult?)> {
-        
         AsyncStream { continuation in
             
             Task {
-                
+                var globalSizeMap: [String: Int64] = [:]
                 isCancelled = false
                 
                 let assets = fetchAllAssets()
@@ -129,6 +54,7 @@ actor MediaScanner {
                     totalCount += 1
                     
                     let size = fastAssetSize(asset)
+                    globalSizeMap[asset.localIdentifier] = size
                     totalSize += size
                     
                     switch asset.mediaType {
@@ -208,7 +134,8 @@ actor MediaScanner {
                     screenRecordings: screenRecordings,
                     duplicateGroups: duplicateGroups,
                     similarGroups: similarGroups,
-                    similarVideoGroups: similarVideoGroups
+                    similarVideoGroups: similarVideoGroups,
+                    sizeMap: globalSizeMap        // ← добавляем
                 )
                 
                 continuation.yield((
@@ -281,99 +208,112 @@ private extension MediaScanner {
 private extension MediaScanner {
     
     func detectDuplicatePhotos(
-            from photos: [PHAsset],
-            continuation: AsyncStream<(ScanProgress, ScanResult?)>.Continuation
-        ) async -> [[PHAsset]] {
+        from photos: [PHAsset],
+        continuation: AsyncStream<(ScanProgress, ScanResult?)>.Continuation
+    ) async -> [[PHAsset]] {
+        
+        var hashMap: [UInt64: [PHAsset]] = [:]
+        
+        let chunks = photos.chunked(into: 40)
+        let total = chunks.count
+        
+        for (index, chunk) in chunks.enumerated() {
             
-            var hashMap: [UInt64: [PHAsset]] = [:]
+            if isCancelled { break }
             
-            let chunks = photos.chunked(into: 40)
-            let total = chunks.count
-            
-            for (index, chunk) in chunks.enumerated() {
+            await withTaskGroup(of: (UInt64, PHAsset)?.self) { group in
                 
-                if isCancelled { break }
-                
-                await withTaskGroup(of: (UInt64, PHAsset)?.self) { group in
-                    
-                    for asset in chunk {
-                        group.addTask {
-                            if let hash = await self.computeHash(for: asset) {
-                                return (hash, asset)
-                            }
-                            return nil
+                for asset in chunk {
+                    group.addTask {
+                        if let combined = await self.hashEngine.makeHash(for: asset) {
+                            return (combined.aHash, asset)
                         }
-                    }
-                    
-                    for await result in group {
-                        if let (hash, asset) = result {
-                            hashMap[hash, default: []].append(asset)
-                        }
+                        return nil
                     }
                 }
                 
-                let progress = Double(index + 1) / Double(total)
-                
-                continuation.yield((
-                    ScanProgress(phase: .duplicates, progress: progress),
-                    nil
-                ))
+                for await result in group {
+                    if let (hash, asset) = result {
+                        hashMap[hash, default: []].append(asset)
+                    }
+                }
             }
             
-            return hashMap.values.filter { $0.count > 1 }
+            let progress = Double(index + 1) / Double(total)
+            
+            continuation.yield((
+                ScanProgress(phase: .duplicates, progress: progress),
+                nil
+            ))
         }
+        
+        return hashMap.values.filter { $0.count > 1 }
+    }
 }
 
 
 private extension MediaScanner {
     
     func detectSimilarPhotos(
-            from photos: [PHAsset],
-            continuation: AsyncStream<(ScanProgress, ScanResult?)>.Continuation
-        ) async -> [[PHAsset]] {
-            
-            var hashes: [(PHAsset, UInt64)] = []
-            
-            for asset in photos {
-                if let hash = await computeHash(for: asset) {
-                    hashes.append((asset, hash))
-                }
+        from photos: [PHAsset],
+        continuation: AsyncStream<(ScanProgress, ScanResult?)>.Continuation
+    ) async -> [[PHAsset]] {
+        
+        var hashes: [(PHAsset, HashEngine.CombinedHash)] = []
+        
+        for asset in photos {
+            if let hash = await hashEngine.makeHash(for: asset) {
+                hashes.append((asset, hash))
             }
-            
-            var groups: [[PHAsset]] = []
-            var visited = Set<String>()
-            
-            let total = hashes.count
-            
-            for (index, (asset, hash)) in hashes.enumerated() {
-                
-                if visited.contains(asset.localIdentifier) { continue }
-                
-                var group = [asset]
-                
-                for (otherAsset, otherHash) in hashes {
-                    if asset.localIdentifier == otherAsset.localIdentifier { continue }
-                    
-                    if hammingDistance(hash, otherHash) < 5 {
-                        group.append(otherAsset)
-                        visited.insert(otherAsset.localIdentifier)
-                    }
-                }
-                
-                if group.count > 1 {
-                    groups.append(group)
-                }
-                
-                let progress = Double(index + 1) / Double(total)
-                
-                continuation.yield((
-                    ScanProgress(phase: .similar, progress: progress),
-                    nil
-                ))
-            }
-            
-            return groups
         }
+        
+        var groups: [[PHAsset]] = []
+        var visited = Set<String>()
+        
+        let total = hashes.count
+        
+        for (index, (asset, hash)) in hashes.enumerated() {
+            
+            if visited.contains(asset.localIdentifier) { continue }
+            
+            var group = [asset]
+            
+            for (otherAsset, otherHash) in hashes {
+                
+                if asset.localIdentifier == otherAsset.localIdentifier { continue }
+                
+                let hamming = await hashEngine.hammingDistance(hash.aHash, otherHash.aHash)
+                
+                if hamming < 6 {
+                    group.append(otherAsset)
+                    visited.insert(otherAsset.localIdentifier)
+                    continue
+                }
+                
+                if let f1 = hash.featurePrint,
+                   let f2 = otherHash.featurePrint,
+                   let distance = await hashEngine.featureDistance(f1, f2),
+                   distance < 0.1 {
+                    
+                    group.append(otherAsset)
+                    visited.insert(otherAsset.localIdentifier)
+                }
+            }
+            
+            if group.count > 1 {
+                groups.append(group)
+            }
+            
+            let progress = Double(index + 1) / Double(total)
+            
+            continuation.yield((
+                ScanProgress(phase: .similar, progress: progress),
+                nil
+            ))
+        }
+        
+        return groups
+    }
 }
 
 private extension MediaScanner {
@@ -514,9 +454,10 @@ private extension MediaScanner {
         screenRecordings: [PHAsset],
         duplicateGroups: [[PHAsset]],
         similarGroups: [[PHAsset]],
-        similarVideoGroups: [[PHAsset]]
+        similarVideoGroups: [[PHAsset]],
+        sizeMap: [String: Int64]
     ) -> ScanResult {
-        
+
         ScanResult(
             totalCount: totalCount,
             totalSize: totalSize,
@@ -526,30 +467,63 @@ private extension MediaScanner {
                 previewAsset: videos.first
             ),
             media: MediaResult(
-                screenshots: buildCategory(from: screenshots),
-                livePhotos: buildCategory(from: livePhotos),
-                screenRecordings: buildCategory(from: screenRecordings),
-                duplicatePhotos: buildGroupedCategory(duplicateGroups),
-                similarPhotos: buildGroupedCategory(similarGroups),
-                similarVideos: buildGroupedCategory(similarVideoGroups)
+                screenshots: buildCategory(from: screenshots, sizeMap: sizeMap),
+                livePhotos: buildCategory(from: livePhotos, sizeMap: sizeMap),
+                screenRecordings: buildCategory(from: screenRecordings, sizeMap: sizeMap),
+                duplicatePhotos: buildGroupedCategory(duplicateGroups, sizeMap: sizeMap),
+                similarPhotos: buildGroupedCategory(similarGroups, sizeMap: sizeMap),
+                similarVideos: buildGroupedCategory(similarVideoGroups, sizeMap: sizeMap)
             )
         )
     }
     
-    func buildCategory(from assets: [PHAsset]) -> MediaCategory {
-        MediaCategory(
+    func buildCategory(
+        from assets: [PHAsset],
+        sizeMap: [String: Int64]
+    ) -> MediaCategory {
+
+        var filteredSizeMap: [String: Int64] = [:]
+        var totalSize: Int64 = 0
+
+        for asset in assets {
+            if let size = sizeMap[asset.localIdentifier] {
+                filteredSizeMap[asset.localIdentifier] = size
+                totalSize += size
+            }
+        }
+
+        return MediaCategory(
             count: assets.count,
-            totalSize: 0,
-            previewAssets: Array(assets.prefix(2))
+            totalSize: totalSize,
+            allAssets: assets,
+            groupedAssets: nil,
+            assetSizes: filteredSizeMap
         )
     }
     
-    func buildGroupedCategory(_ groups: [[PHAsset]]) -> MediaCategory {
+    func buildGroupedCategory(
+        _ groups: [[PHAsset]],
+        sizeMap: [String: Int64]
+    ) -> MediaCategory {
+
         let flat = groups.flatMap { $0 }
+
+        var filteredSizeMap: [String: Int64] = [:]
+        var totalSize: Int64 = 0
+
+        for asset in flat {
+            if let size = sizeMap[asset.localIdentifier] {
+                filteredSizeMap[asset.localIdentifier] = size
+                totalSize += size
+            }
+        }
+
         return MediaCategory(
             count: flat.count,
-            totalSize: 0,
-            previewAssets: Array(flat.prefix(2))
+            totalSize: totalSize,
+            allAssets: flat,
+            groupedAssets: groups,
+            assetSizes: filteredSizeMap
         )
     }
 }

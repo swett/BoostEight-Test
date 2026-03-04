@@ -11,5 +11,8 @@ import Photos
 struct MediaCategory {
     let count: Int
     let totalSize: Int64
-    let previewAssets: [PHAsset]   // максимум 2
+
+    let allAssets: [PHAsset]
+    let groupedAssets: [[PHAsset]]?
+    let assetSizes: [String: Int64] 
 }

@@ -10,7 +10,6 @@ import Foundation
 struct ScanResult {
     let totalCount: Int
     let totalSize: Int64
-    
     let videoCompressor: VideoCompressorResult
     let media: MediaResult
 }

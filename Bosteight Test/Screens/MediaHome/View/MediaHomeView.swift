@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-struct MediaHomeView: View {
-    @StateObject var viewModel: MockMediaHomeViewModel
+struct MediaHomeView<ViewModel: MediaHomeViewModelProtocol>: View {
+    @StateObject var viewModel: ViewModel
     var body: some View {
         ZStack(alignment: .top) {
             Color.theme.colorFFFFFF
@@ -31,9 +31,9 @@ extension MediaHomeView {
         VStack(alignment: .leading) {
             HStack {
                 Button {
-                    
+//                    viewModel
                 } label: {
-                    Image(systemName: "chevrone.left")
+                    Image(systemName: "chevron.backward")
                         .foregroundStyle(Color.theme.color2B2B2B)
                 }
             }

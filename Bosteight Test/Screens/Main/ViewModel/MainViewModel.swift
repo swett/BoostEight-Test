@@ -180,13 +180,6 @@ extension MainViewModel {
             storageProgress = 0
         }
     }
-    
-    private func formatBytes(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useGB]
-        formatter.countStyle = .decimal
-        return formatter.string(fromByteCount: bytes)
-    }
 }
 
 
