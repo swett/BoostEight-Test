@@ -25,6 +25,8 @@ final class MediaCategoryDetailViewModel: ObservableObject {
     @Published var selectedSize: Int64 = 0
     @Published var showDeleteAlert: Bool = false
     
+    @Published var title: String = ""
+    
     var countOfFiles: String {
         let category = scanStore.category(for: subcategory)
         return "\(category.count)"
@@ -52,6 +54,7 @@ final class MediaCategoryDetailViewModel: ObservableObject {
 
     
     func buildData() {
+        self.title = self.subcategory.title
             switch screenType {
             case .grid:
                 buildGrid()
@@ -84,6 +87,7 @@ final class MediaCategoryDetailViewModel: ObservableObject {
 
     private func buildGrouped() {
 
+        let category = scanStore.category(for: subcategory)
         let grouped = scanStore.groupedAssets(for: subcategory)
 
         groups = grouped.map { group in
@@ -93,9 +97,10 @@ final class MediaCategoryDetailViewModel: ObservableObject {
             }
 
             let mapped = group.map { asset in
+
                 SelectableAsset(
                     id: asset.localIdentifier,
-                    size: 0,
+                    size: category.assetSizes[asset.localIdentifier] ?? 0,
                     isSelected: asset.localIdentifier != best.localIdentifier,
                     isBest: asset.localIdentifier == best.localIdentifier
                 )
@@ -114,7 +119,9 @@ final class MediaCategoryDetailViewModel: ObservableObject {
             gridAssets[index].isSelected.toggle()
             
         case .grouped:
-            for groupIndex in groups.indices {
+            if let groupIndex = groups.firstIndex(where: { group in
+                group.assets.contains(where: { $0.id == id })
+            }) {
                 if let assetIndex = groups[groupIndex].assets.firstIndex(where: { $0.id == id }) {
                     groups[groupIndex].assets[assetIndex].isSelected.toggle()
                 }
@@ -179,5 +186,23 @@ final class MediaCategoryDetailViewModel: ObservableObject {
     func popBack() {
         router?.popLast()
     }
+    
+    func toggleGroupSelection(_ group: AssetGroup) {
+
+        guard let groupIndex = groups.firstIndex(where: { $0.id == group.id }) else { return }
+
+        let shouldSelectAll = !groups[groupIndex].assets.allSatisfy { $0.isSelected }
+
+        for assetIndex in groups[groupIndex].assets.indices {
+            groups[groupIndex].assets[assetIndex].isSelected = shouldSelectAll
+        }
+
+        recalculateSelection()
+    }
+    
+    func isGroupSelected(_ group: AssetGroup) -> Bool {
+        group.assets.allSatisfy { $0.isSelected }
+    }
+    
 }
 

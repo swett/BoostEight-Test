@@ -9,7 +9,14 @@ import Foundation
 import Photos
 
 struct VideoCompressorResult {
+
     let count: Int
     let totalSize: Int64
-    let previewAsset: PHAsset?
+
+    let assets: [PHAsset]
+    let assetSizes: [String: Int64]
+
+    var previewAsset: PHAsset? {
+        assets.first
+    }
 }

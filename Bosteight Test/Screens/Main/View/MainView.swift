@@ -23,7 +23,7 @@ struct MainView: View {
 }
 
 #Preview {
-    MainView(viewModel: MainViewModel(scanner: MediaScanner()))
+    MainView(viewModel: MainViewModel(scanner: MediaScanner(), scanStore: ScanStore(scanResult: .empty)))
 }
 
 

@@ -85,9 +85,10 @@ extension MediaCategoryDetailView {
                 }
             }
             HStack {
-                VStack(alignment: .leading,spacing: 2) {
-                    Text("")
-                        .font(.subheadline)
+                VStack(alignment: .leading,spacing: 10) {
+                    Text(viewModel.title)
+                        .font(.sfSemiBold24)
+                        .foregroundStyle(Color.theme.color2B2B2B)
                     HStack {
                         BadgesView(iconName: "video_icon_black", text: viewModel.countOfFiles)
                         BadgesView(iconName: "storage_icon", text: viewModel.sizeOfFiles)
@@ -96,6 +97,7 @@ extension MediaCategoryDetailView {
                 }
                 Spacer()
             }
+            .padding(.top, 10)
             
         }
         .padding(.horizontal, 16)
@@ -160,33 +162,62 @@ extension MediaCategoryDetailView {
 extension MediaCategoryDetailView {
     
     private var groupedView: some View {
-        
+
         ScrollView {
-            
+
             LazyVStack(spacing: 24) {
-                
+
                 ForEach(viewModel.groups) { group in
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        
-                        LazyHStack(spacing: 12) {
-                            
-                            ForEach(group.assets) { asset in
-                                
-                                AssetCellGrid(
-                                    asset: asset,
-                                    onTap: {
-                                        viewModel.toggleSelection(id: asset.id)
-                                    }
-                                )
+
+                    VStack(alignment: .leading, spacing: 12) {
+
+                        groupHeader(group)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+
+                            LazyHStack(spacing: 12) {
+
+                                ForEach(group.assets) { asset in
+
+                                    AssetCellGrid(
+                                        asset: asset,
+                                        onTap: {
+                                            viewModel.toggleSelection(id: asset.id)
+                                        }
+                                    )
+                                }
                             }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
                     }
                 }
             }
             .padding(.top)
         }
+    }
+    
+    private func groupHeader(_ group: AssetGroup) -> some View {
+
+        HStack {
+
+            Text("\(group.assets.count) items")
+                .font(.sfSemiBold16)
+                .foregroundStyle(Color.theme.color2B2B2B)
+
+            Spacer()
+
+            Button {
+
+                viewModel.toggleGroupSelection(group)
+
+            } label: {
+
+                Text(viewModel.isGroupSelected(group) ? "Deselect All" : "Select All")
+                    .font(.sfMedium16)
+                    .foregroundStyle(Color.theme.color858585)
+            }
+        }
+        .padding(.horizontal)
     }
 }
 

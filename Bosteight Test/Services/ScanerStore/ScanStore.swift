@@ -156,3 +156,11 @@ extension ScanStore {
         )
     }
 }
+
+extension ScanStore {
+    /// Called by MainViewModel after a scan completes.
+    /// Replaces the entire result — all downstream views update automatically.
+    func apply(_ result: ScanResult) {
+        scanResult = result
+    }
+}

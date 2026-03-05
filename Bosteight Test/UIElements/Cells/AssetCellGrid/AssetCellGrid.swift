@@ -14,7 +14,7 @@ struct AssetCellGrid: View {
 
     var body: some View {
 
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: .bottom) {
 
             AssetThumbnailView(
                 id: asset.id,
@@ -22,9 +22,17 @@ struct AssetCellGrid: View {
             )
             .frame(width: 177, height: 216)
             .clipped()
-
-            CheckBoxView(isSelected: asset.isSelected)
-                .padding(6)
+            HStack {
+                if asset.isBest {
+                    Image("bestBage_icon")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 65, height: 25)
+                }
+                Spacer()
+                CheckBoxView(isSelected: asset.isSelected)
+                    .padding(6)
+            }
         }
         .onTapGesture {
             onTap()

@@ -8,7 +8,6 @@
 import Foundation
 
 enum AppFlow: Hashable {
-    case launch
     case onboarding
     case main
 }
@@ -32,7 +31,7 @@ enum FlowDestination: Hashable {
 }
 // MARK: 3. Create AppRouter
 @MainActor final class AppRouter: ObservableObject, Routing {
-    @Published var currentFlow: AppFlow = .launch
+    @Published var currentFlow: AppFlow = .onboarding
     @Published var flowPath: [FlowDestination] = []
     
     func goTo(_ flow: AppFlow) {

@@ -142,7 +142,7 @@ actor MediaScanner {
                     ScanProgress(phase: .finished, progress: 1),
                     result
                 ))
-                
+                await HashCache.shared.persist()
                 continuation.finish()
             }
         }
@@ -345,7 +345,7 @@ private extension MediaScanner {
             
             imageManager.requestImage(
                 for: asset,
-                targetSize: CGSize(width: 64, height: 64),
+                targetSize: CGSize(width: 32, height: 32),
                 contentMode: .aspectFill,
                 options: options
             ) { image, _ in
@@ -464,7 +464,8 @@ private extension MediaScanner {
             videoCompressor: VideoCompressorResult(
                 count: videos.count,
                 totalSize: videoSize,
-                previewAsset: videos.first
+                assets: videos,
+                assetSizes: sizeMap
             ),
             media: MediaResult(
                 screenshots: buildCategory(from: screenshots, sizeMap: sizeMap),

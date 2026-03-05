@@ -21,10 +21,10 @@ final class OnboardingViewModel: ObservableObject {
     ]
     
     // MARK: - Dependencies
-    private let coordinator: Routing?
+    private let router: Routing?
     
-    init(coordinator: Routing? = nil) {
-        self.coordinator = coordinator
+    init(router: Routing? = nil) {
+        self.router = router
     }
     
     // MARK: - Step actions
@@ -32,6 +32,8 @@ final class OnboardingViewModel: ObservableObject {
     func nextStep() {
         if step < items.count - 1 {
             step += 1
+        } else {
+            finish()
         }
     }
     
@@ -42,6 +44,6 @@ final class OnboardingViewModel: ObservableObject {
     }
     
     func finish() {
-        coordinator?.goTo(.main)
+        router?.goTo(.main)
     }
 }

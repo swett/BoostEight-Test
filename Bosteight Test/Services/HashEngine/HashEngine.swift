@@ -22,11 +22,26 @@ actor HashEngine {
     // MARK: - Public API
     
     func makeHash(for asset: PHAsset) async -> CombinedHash? {
+
+        let id = asset.localIdentifier
+
+        // 1. проверяем cache
+        if let cached = await HashCache.shared.hash(for: id) {
+            return CombinedHash(aHash: cached, featurePrint: nil)
+        }
+
+        // 2. загружаем изображение
         guard let image = await requestImage(for: asset) else { return nil }
-        
+
+        // 3. считаем hash
         let aHash = makeAverageHash(from: image)
+
+        // 4. сохраняем в cache
+        await HashCache.shared.save(hash: aHash, for: id)
+
+        // 5. feature print (для similar)
         let feature = makeFeaturePrint(from: image)
-        
+
         return CombinedHash(
             aHash: aHash,
             featurePrint: feature
@@ -117,4 +132,6 @@ private extension HashEngine {
         
         return request.results?.first as? VNFeaturePrintObservation
     }
+    
+
 }

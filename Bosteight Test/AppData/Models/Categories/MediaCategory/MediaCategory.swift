@@ -16,3 +16,16 @@ struct MediaCategory {
     let groupedAssets: [[PHAsset]]?
     let assetSizes: [String: Int64] 
 }
+
+
+extension MediaCategory {
+    static var empty: MediaCategory {
+        MediaCategory(
+            count: 0,
+            totalSize: 0,
+            allAssets: [],
+            groupedAssets: nil,
+            assetSizes: [:]
+        )
+    }
+}
