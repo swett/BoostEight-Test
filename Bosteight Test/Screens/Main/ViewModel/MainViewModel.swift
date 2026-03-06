@@ -112,7 +112,7 @@ extension MainViewModel {
         }
     }
     
-    private func handleAuthorization(_ status: PHAuthorizationStatus) {
+     func handleAuthorization(_ status: PHAuthorizationStatus) {
     
             switch status {
             case .authorized:

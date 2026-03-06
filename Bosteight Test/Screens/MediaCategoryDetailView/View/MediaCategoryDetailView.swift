@@ -68,10 +68,10 @@ extension MediaCategoryDetailView {
                 
                 if viewModel.selectedCount > 0 {
                     Button {
-                        
+                        viewModel.deselectAll()
                     } label: {
                         HStack {
-                            Image(systemName: "chekmark")
+                            Image(systemName: "checkmark")
                             Text("Deselect all")
                         }
                         .font(.sfMedium14)
@@ -119,7 +119,7 @@ extension MediaCategoryDetailView {
                 .foregroundStyle(Color.theme.color495AE9)
                 .frame(height: 60)
                 .overlay {
-                    Text("Delete \(viewModel.selectedCount)( \(formatBytes(viewModel.selectedSize)))")
+                    Text("Delete \(viewModel.selectedCount) \(viewModel.selectedCount == 1 ? "photo" : "photos") ( \(formatBytes(viewModel.selectedSize)))")
                         .font(.sfMedium16)
                         .foregroundStyle(Color.theme.colorFEFEFE
                         )

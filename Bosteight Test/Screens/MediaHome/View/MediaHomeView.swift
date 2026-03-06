@@ -42,6 +42,7 @@ extension MediaHomeView {
             Text("Media")
                 .foregroundStyle(Color.theme.color2B2B2B)
                 .font(.sfSemiBold24)
+                .padding(.top, 10)
         }
         .padding(.horizontal, 16)
     }

@@ -9,6 +9,8 @@ import SwiftUI
 
 struct MainView: View {
     @StateObject var viewModel: MainViewModel
+    @AppStorage("didRequestPhotoPermission")
+    private var didRequestPermission = false
     var body: some View {
         ZStack(alignment: .top) {
             Color.theme.color87B3FB
@@ -18,6 +20,13 @@ struct MainView: View {
                 main
                     .padding(.top, 92)
             }
+        }
+        .task {
+            guard !didRequestPermission else { return }
+               guard viewModel.accessState == .notDetermined else { return }
+               
+               didRequestPermission = true
+               viewModel.requestPermission()
         }
     }
 }

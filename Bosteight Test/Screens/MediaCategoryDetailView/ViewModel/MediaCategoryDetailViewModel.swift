@@ -204,5 +204,25 @@ final class MediaCategoryDetailViewModel: ObservableObject {
         group.assets.allSatisfy { $0.isSelected }
     }
     
+    func deselectAll() {
+        
+        switch screenType {
+            
+        case .grid:
+            for index in gridAssets.indices {
+                gridAssets[index].isSelected = false
+            }
+            
+        case .grouped:
+            for groupIndex in groups.indices {
+                for assetIndex in groups[groupIndex].assets.indices {
+                    groups[groupIndex].assets[assetIndex].isSelected = false
+                }
+            }
+        }
+        
+        recalculateSelection()
+    }
+    
 }
 
