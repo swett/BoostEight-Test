@@ -26,17 +26,17 @@ enum MediaSubcategory: Hashable {
     var iconName: String {
         switch self {
         case .screenshots:
-            return "media_icon"
+            return "screenshots_icon"
         case .livePhotos:
-            return "media_icon"
+            return "live_photos_icon"
         case .screenRecordings:
-            return "media_icon"
+            return "screen_recordings_icon"
         case .duplicatePhotos:
-            return "media_icon"
+            return "duplicate_photos_icon"
         case .similarPhotos:
-            return "media_icon"
+            return "similar_photos_icon"
         case .similarVideos:
-            return "media_icon"
+            return "similar_photos_icon"
         }
     }
     
@@ -58,7 +58,7 @@ enum MediaSubcategory: Hashable {
     
 }
 
-enum CategoryType {
+enum CategoryType: Equatable {
     case videoCompressor
     case media(MediaSubcategory?)
     

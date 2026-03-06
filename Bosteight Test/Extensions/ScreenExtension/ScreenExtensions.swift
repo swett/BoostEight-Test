@@ -26,3 +26,10 @@ struct DeviceType {
     static let IS_IPAD_PRO          = UIDevice.current.userInterfaceIdiom == .pad && ScreenSize.SCREEN_MAX_LENGTH == 1366.0
     static let IS_SMALL             = IS_IPHONE_6_7 || IS_IPHONE_6P_7P
 }
+
+
+extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
+    }
+}

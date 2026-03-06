@@ -23,9 +23,7 @@ final class VideoCompressionService: VideoCompressionServiceProtocol {
     ) -> AsyncStream<VideoCompressionState> {
 
         AsyncStream { continuation in
-
             Task {
-
                 continuation.yield(.preparing)
 
                 guard let avAsset = await loadAVAsset(for: asset) else {
@@ -45,62 +43,72 @@ final class VideoCompressionService: VideoCompressionServiceProtocol {
                     asset: avAsset,
                     presetName: quality.preset
                 ) else {
-
                     continuation.yield(.failed(VideoCompressionError.exportCreationFailed))
                     continuation.finish()
                     return
                 }
 
                 exportSession = export
-
                 export.outputURL = outputURL
                 export.outputFileType = .mp4
                 export.shouldOptimizeForNetworkUse = true
 
-                export.exportAsynchronously { [weak self] in
+                // Run export and progress polling concurrently
+                await withTaskGroup(of: Void.self) { group in
 
-                    guard let self else { return }
-
-                    switch export.status {
-
-                    case .completed:
-
-                        let compressedSize = (try? FileManager.default
-                            .attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0
-
-                        let result = VideoCompressionResult(
-                            originalAsset: asset,
-                            compressedURL: outputURL,
-                            originalSize: originalSize,
-                            compressedSize: compressedSize
-                        )
-
-                        continuation.yield(.finished(result: result))
-
-                    case .failed:
-                        continuation.yield(.failed(export.error ?? VideoCompressionError.unknown))
-
-                    case .cancelled:
-                        continuation.yield(.cancelled)
-
-                    default:
-                        break
+                    group.addTask {
+                        await withCheckedContinuation { done in
+                            export.exportAsynchronously {
+                                done.resume()
+                            }
+                        }
                     }
 
-                    continuation.finish()
-                    self.exportSession = nil
+                    group.addTask {
+
+                        while export.status == .unknown {
+                            try? await Task.sleep(nanoseconds: 50_000_000)
+                        }
+
+                        while export.status == .waiting || export.status == .exporting {
+            
+                            continuation.yield(
+                                .compressing(progress: Double(export.progress))
+                            )
+
+                            try? await Task.sleep(nanoseconds: 200_000_000)
+                        }
+                    }
+
+                    await group.waitForAll()
                 }
 
-                // progress polling
+                // Export is done — check final status
+                switch export.status {
+                case .completed:
+                    let compressedSize = (try? FileManager.default
+                        .attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0
 
-                while export.status == .exporting {
-
-                    continuation.yield(
-                        .compressing(progress: Double(export.progress))
+                    let result = VideoCompressionResult(
+                        originalAsset: asset,
+                        compressedURL: outputURL,
+                        originalSize: originalSize,
+                        compressedSize: compressedSize
                     )
+                    continuation.yield(.finished(result: result))
 
-                    try? await Task.sleep(nanoseconds: 200_000_000)
+                case .failed:
+                    continuation.yield(.failed(export.error ?? VideoCompressionError.unknown))
+
+                case .cancelled:
+                    continuation.yield(.cancelled)
+
+                default:
+                    continuation.yield(.failed(VideoCompressionError.unknown))
                 }
+
+                continuation.finish()
+                exportSession = nil
             }
         }
     }

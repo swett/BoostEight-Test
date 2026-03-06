@@ -49,6 +49,7 @@ extension MainView {
                 .frame(width: 148, height: 148)
         }
         .padding(.horizontal, 16)
+        .padding(.top, 15)
     }
 }
 
@@ -82,7 +83,7 @@ extension MainView {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 24)
+                .padding(.top, 4)
             }
     }
 }

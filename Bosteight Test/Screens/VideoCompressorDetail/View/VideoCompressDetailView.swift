@@ -9,6 +9,8 @@ import SwiftUI
 
 struct VideoCompressDetailView: View {
     @StateObject var viewModel: VideoCompressorDetailViewModel
+    @State private var progress: Double = 0
+
     var body: some View {
         ZStack(alignment: .top) {
             Group {
@@ -66,22 +68,41 @@ extension VideoCompressDetailView {
 
 extension VideoCompressDetailView {
     private var videoThumbnail: some View {
-        Group {
-            if let asset = viewModel.asset {
-                VideoThumbnailView(asset: asset, height: 288)
-            } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray.opacity(0.2))
-                    .aspectRatio(16/9, contentMode: .fit)
-                    .overlay(
-                        Image(systemName: "video.fill")
-                            .font(.largeTitle)
-                            .foregroundStyle(.gray)
-                    )
+            let height: CGFloat = DeviceType.IS_IPHONE_X ? 220 : 288
+
+            return Group {
+                if let asset = viewModel.asset {
+                    VideoPlayerView(asset: asset, height: height)
+                } else {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: height)
+                        .overlay(
+                            Image(systemName: "video.fill")
+                                .font(.largeTitle)
+                                .foregroundStyle(.gray)
+                        )
+                }
             }
         }
-        
-    }
+    private func videoThumbnail(height: CGFloat) -> some View {
+            Group {
+                if let asset = viewModel.asset {
+                    VideoPlayerView(asset: asset, height: height)
+                } else {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: height)
+                        .overlay(
+                            Image(systemName: "video.fill")
+                                .font(.largeTitle)
+                                .foregroundStyle(.gray)
+                        )
+                }
+            }
+        }
 }
 
 extension VideoCompressDetailView {
@@ -126,13 +147,12 @@ extension VideoCompressDetailView {
 
 extension VideoCompressDetailView {
     private var qualityPicker: some View {
-        VStack(alignment: .leading, spacing: 12) {
+     
             VStack(spacing: 12) {
                 ForEach(VideoCompressionQuality.allCases, id: \.title) { quality in
                     qualityButton(quality)
                 }
             }
-        }
         
     }
     
@@ -218,11 +238,15 @@ extension VideoCompressDetailView {
                         
 
                     VStack(spacing: 8) {
-                        Text("\(Int(viewModel.compressionProgress * 100))%")
+                        Text("\(Int(progress * 100))%")
                             .font(.sfSemiBold24)
                             .foregroundStyle(Color.theme.colorFEFEFE)
-                            .contentTransition(.numericText())
-                            .animation(.easeInOut(duration: 0.2), value: Int(viewModel.compressionProgress * 100))
+//                            .contentTransition(.identity)
+                            .onChange(of: viewModel.compressionProgress) { newValue in
+                                withAnimation(.linear(duration: 0.3)) {
+                                    progress = newValue
+                                }
+                            }
                         Text("Compessing Video ...")
                             .font(.sfSemiBold24)
                             .foregroundStyle(Color.theme.colorFEFEFE)
@@ -249,60 +273,100 @@ extension VideoCompressDetailView {
                             .foregroundStyle(Color.theme.colorFFFFFF)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.theme.colorFFFFFF.opacity(0.2))
+                            .background(Color.theme.color495AE9)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .padding(.horizontal, 16)
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 10)
             }
         }
 }
 
 extension VideoCompressDetailView {
     private var finishedStateView: some View {
-           VStack(spacing: 19) {
-               header
-               finishedVideoThumbnail
-               finishedSizeComparison
-               Spacer()
-               finishedActions
-           }
-           .padding(.horizontal, 16)
-       }
+            GeometryReader { geo in
+                let videoHeight = (geo.size.height * 0.50).clamped(to: 220...500)
 
-       private var finishedVideoThumbnail: some View {
-           ZStack(alignment: .topTrailing) {
-               if let asset = viewModel.asset {
-                   VideoThumbnailView(asset: asset, height: 458)
-                  
-               } else {
-                   RoundedRectangle(cornerRadius: 16)
-                       .fill(Color.gray.opacity(0.15))
-                       .aspectRatio(16/9, contentMode: .fit)
-                       .overlay(
-                           Image(systemName: "video.fill")
-                               .font(.largeTitle)
-                               .foregroundStyle(.gray)
-                       )
-               }
+                VStack(spacing: 0) {
+                    // Sticky header — never scrolls
+                    header
+                        .padding(.horizontal, 16)
+                        .background(Color.theme.colorFFFFFF)
 
-               // Success badge
-               HStack(spacing: 4) {
-                   Image(systemName: "checkmark.circle.fill")
-                       .foregroundStyle(.green)
-                   Text("Done")
-                       .font(.caption.weight(.semibold))
-                       .foregroundStyle(Color.theme.color2B2B2B)
-               }
-               .padding(.horizontal, 10)
-               .padding(.vertical, 6)
-               .background(.white)
-               .clipShape(Capsule())
-               .shadow(color: .black.opacity(0.1), radius: 4)
-               .padding(12)
-           }
-       }
+                    // Scrollable content
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: geo.size.height * 0.025) {
+                            finishedVideoThumbnail(height: videoHeight)
+                            finishedSizeComparison
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, geo.size.height * 0.02)
+                        .padding(.bottom, 16)
+                    }
+                }
+                .safeAreaInset(edge: .bottom) {
+                    finishedActions
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            Color.theme.colorFFFFFF
+                                .ignoresSafeArea(edges: .bottom)
+                        )
+                }
+            }
+        }
+
+//       private var finishedVideoThumbnail: some View {
+//           ZStack(alignment: .topTrailing) {
+//               let height: CGFloat = DeviceType.IS_IPHONE_X ? 358 : 458
+//               if let asset = viewModel.asset {
+//                   VideoPlayerView(asset: asset, height: height)
+//                  
+//               } else {
+//                   RoundedRectangle(cornerRadius: 16)
+//                       .fill(Color.gray.opacity(0.15))
+//                       .aspectRatio(16/9, contentMode: .fit)
+//                       .overlay(
+//                           Image(systemName: "video.fill")
+//                               .font(.largeTitle)
+//                               .foregroundStyle(.gray)
+//                       )
+//               }
+//
+//               // Success badge
+////               HStack(spacing: 4) {
+////                   Image(systemName: "checkmark.circle.fill")
+////                       .foregroundStyle(.green)
+////                   Text("Done")
+////                       .font(.caption.weight(.semibold))
+////                       .foregroundStyle(Color.theme.color2B2B2B)
+////               }
+////               .padding(.horizontal, 10)
+////               .padding(.vertical, 6)
+////               .background(.white)
+////               .clipShape(Capsule())
+////               .shadow(color: .black.opacity(0.1), radius: 4)
+////               .padding(12)
+//           }
+//       }
+    private func finishedVideoThumbnail(height: CGFloat) -> some View {
+            Group {
+                if let asset = viewModel.asset {
+                    VideoPlayerView(asset: asset, height: height)
+                } else {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.gray.opacity(0.15))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: height)
+                        .overlay(
+                            Image(systemName: "video.fill")
+                                .font(.largeTitle)
+                                .foregroundStyle(.gray)
+                        )
+                }
+            }
+        }
 
        private var finishedSizeComparison: some View {
            VStack(spacing: 8) {
@@ -327,23 +391,6 @@ extension VideoCompressDetailView {
                    )
                }
                .padding(16)
-               .clipShape(RoundedRectangle(cornerRadius: 16))
-
-               // Saved badge
-               let saved = viewModel.savedSize
-               if saved > 0 {
-                   HStack(spacing: 4) {
-                       Image(systemName: "arrow.down.circle.fill")
-                           .foregroundStyle(.green)
-                       Text("Saved \(viewModel.formatBytes(saved))")
-                           .font(.sfMedium16)
-                           .foregroundStyle(.green)
-                   }
-                   .padding(.horizontal, 16)
-                   .padding(.vertical, 8)
-                   .background(Color.green.opacity(0.08))
-                   .clipShape(Capsule())
-               }
            }
        }
 
@@ -382,15 +429,37 @@ extension VideoCompressDetailView {
 
 extension VideoCompressDetailView {
     private var idleStateView: some View {
-            VStack(spacing: 19) {
-                header
-                videoThumbnail
-                sizeComparison
-                qualityPicker
-                Spacer()
-                mainActionButton
+            GeometryReader { geo in
+                let videoHeight = (geo.size.height * 0.38).clamped(to: 180...320)
+
+                VStack(spacing: 0) {
+                    // Sticky header — never scrolls
+                    header
+                        .padding(.horizontal, 16)
+                        .background(Color.theme.colorFFFFFF)
+
+                    // Scrollable content
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: geo.size.height * 0.025) {
+                            videoThumbnail(height: videoHeight)
+                            sizeComparison
+                            qualityPicker
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, geo.size.height * 0.02)
+                        .padding(.bottom, 16)
+                    }
+                }
+                .safeAreaInset(edge: .bottom) {
+                    mainActionButton
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            Color.theme.colorFFFFFF
+                                .ignoresSafeArea(edges: .bottom)
+                        )
+                }
             }
-            .padding(.horizontal, 16)
         }
 }
 

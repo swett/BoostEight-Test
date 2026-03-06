@@ -31,16 +31,19 @@ extension MediaHomeView {
         VStack(alignment: .leading) {
             HStack {
                 Button {
-//                    viewModel
+                    viewModel.popBack()
                 } label: {
                     Image(systemName: "chevron.backward")
                         .foregroundStyle(Color.theme.color2B2B2B)
                 }
+                
+                Spacer()
             }
             Text("Media")
                 .foregroundStyle(Color.theme.color2B2B2B)
                 .font(.sfSemiBold24)
         }
+        .padding(.horizontal, 16)
     }
 }
 
@@ -51,6 +54,9 @@ extension MediaHomeView {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(viewModel.items) { item in
                     MediaCategoryCell(model: item)
+                        .onTapGesture {
+                            viewModel.openCategory(item.id)
+                        }
                 }
             }
             .padding(.horizontal, 16)

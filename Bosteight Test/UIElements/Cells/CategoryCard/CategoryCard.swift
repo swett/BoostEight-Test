@@ -65,12 +65,29 @@ private extension CategoryCard {
         switch state {
             
         case .locked:
-            Image("locked_placeholder")
-                .resizable()
-                .scaledToFill()
-                .frame(height: 155)
-                .clipped()
-                .cornerRadius(10)
+            if type == .videoCompressor {
+                Image("locked_placeholder_compressor")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: 155)
+                    .clipped()
+                    .cornerRadius(10)
+            } else {
+                HStack {
+                    Image("locked_placeholder_media_0")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 155)
+                        .clipped()
+                        .cornerRadius(10)
+                    Image("locked_placeholder_media_1")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 155)
+                        .clipped()
+                        .cornerRadius(10)
+                }
+            }
             
         case .loading:
             ZStack {

@@ -105,6 +105,7 @@ actor MediaScanner {
                 )
                 
                 if isCancelled {
+                    await HashCache.shared.persist()  // ← save progress made so far
                     continuation.finish()
                     return
                 }
@@ -255,65 +256,97 @@ private extension MediaScanner {
 private extension MediaScanner {
     
     func detectSimilarPhotos(
-        from photos: [PHAsset],
-        continuation: AsyncStream<(ScanProgress, ScanResult?)>.Continuation
-    ) async -> [[PHAsset]] {
-        
-        var hashes: [(PHAsset, HashEngine.CombinedHash)] = []
-        
-        for asset in photos {
-            if let hash = await hashEngine.makeHash(for: asset) {
-                hashes.append((asset, hash))
-            }
-        }
-        
-        var groups: [[PHAsset]] = []
-        var visited = Set<String>()
-        
-        let total = hashes.count
-        
-        for (index, (asset, hash)) in hashes.enumerated() {
-            
-            if visited.contains(asset.localIdentifier) { continue }
-            
-            var group = [asset]
-            
-            for (otherAsset, otherHash) in hashes {
-                
-                if asset.localIdentifier == otherAsset.localIdentifier { continue }
-                
-                let hamming = await hashEngine.hammingDistance(hash.aHash, otherHash.aHash)
-                
-                if hamming < 6 {
-                    group.append(otherAsset)
-                    visited.insert(otherAsset.localIdentifier)
-                    continue
+            from photos: [PHAsset],
+            continuation: AsyncStream<(ScanProgress, ScanResult?)>.Continuation
+        ) async -> [[PHAsset]] {
+
+            // STEP 1 — Compute aHashes only (small images, fast)
+            var hashes: [(PHAsset, UInt64)] = []
+            hashes.reserveCapacity(photos.count)
+
+            let chunks = photos.chunked(into: 50)
+            for (index, chunk) in chunks.enumerated() {
+                if isCancelled { break }
+
+                // Pre-warm PHCachingImageManager for this chunk
+                imageManager.startCachingImages(
+                    for: chunk,
+                    targetSize: CGSize(width: 16, height: 16),
+                    contentMode: .aspectFill,
+                    options: nil
+                )
+
+                let results = await withTaskGroup(of: (PHAsset, UInt64)?.self) { group in
+                    for asset in chunk {
+                        group.addTask {
+                            guard let h = await self.hashEngine.makeHash(for: asset) else { return nil }
+                            return (asset, h.aHash)
+                        }
+                    }
+                    var out: [(PHAsset, UInt64)] = []
+                    for await r in group { if let r { out.append(r) } }
+                    return out
                 }
-                
-                if let f1 = hash.featurePrint,
-                   let f2 = otherHash.featurePrint,
-                   let distance = await hashEngine.featureDistance(f1, f2),
-                   distance < 0.1 {
-                    
-                    group.append(otherAsset)
-                    visited.insert(otherAsset.localIdentifier)
+                hashes.append(contentsOf: results)
+
+                continuation.yield((
+                    ScanProgress(phase: .similar, progress: Double(index + 1) / Double(chunks.count)),
+                    nil
+                ))
+            }
+
+            if isCancelled { return [] }
+
+            // STEP 2 — Cluster by Hamming distance using bit-interleaved buckets
+            // Use top 10 bits → 1024 buckets (much smaller inner loops for large libraries)
+            typealias Entry = (asset: PHAsset, hash: UInt64)
+            var buckets: [UInt64: [Entry]] = Dictionary(minimumCapacity: 1024)
+            for (asset, hash) in hashes {
+                let key = hash >> 54  // top 10 bits
+                buckets[key, default: []].append((asset, hash))
+            }
+
+            var visited = Set<String>()
+            var groups: [[PHAsset]] = []
+
+            for (_, bucket) in buckets {
+                guard bucket.count > 1 else { continue }
+
+                for i in 0..<bucket.count {
+                    let (asset, hash) = bucket[i]
+                    if visited.contains(asset.localIdentifier) { continue }
+
+                    var group = [asset]
+
+                    for j in (i + 1)..<bucket.count {
+                        let (other, otherHash) = bucket[j]
+                        if visited.contains(other.localIdentifier) { continue }
+
+                        // hammingDistance is sync — NO await
+                        let hamming = await hashEngine.hammingDistance(hash, otherHash)
+                        if hamming < 10 {
+                            // Only now pay the cost of featurePrint
+                            let fp1 = await hashEngine.makeFeaturePrint(for: asset)
+                            let fp2 = await hashEngine.makeFeaturePrint(for: other)
+
+                            if let f1 = fp1, let f2 = fp2,
+                               let dist = await hashEngine.featureDistance(f1, f2),
+                               dist < 0.15 {
+                                group.append(other)
+                                visited.insert(other.localIdentifier)
+                            }
+                        }
+                    }
+
+                    if group.count > 1 {
+                        groups.append(group)
+                        visited.insert(asset.localIdentifier)
+                    }
                 }
             }
-            
-            if group.count > 1 {
-                groups.append(group)
-            }
-            
-            let progress = Double(index + 1) / Double(total)
-            
-            continuation.yield((
-                ScanProgress(phase: .similar, progress: progress),
-                nil
-            ))
+
+            return groups
         }
-        
-        return groups
-    }
 }
 
 private extension MediaScanner {
@@ -413,32 +446,30 @@ private extension MediaScanner {
 private extension MediaScanner {
     
     func detectSimilarVideos(from videos: [PHAsset]) -> [[PHAsset]] {
-        
-        var groups: [[PHAsset]] = []
-        var visited = Set<String>()
-        
-        for video in videos {
-            
-            if visited.contains(video.localIdentifier) { continue }
-            
-            var group = [video]
-            
-            for other in videos {
-                if video.localIdentifier == other.localIdentifier { continue }
-                
-                if abs(video.duration - other.duration) < 1 {
-                    group.append(other)
-                    visited.insert(other.localIdentifier)
+            var groups: [[PHAsset]] = []
+            var visited = Set<String>()
+
+            for (i, video) in videos.enumerated() {
+                if visited.contains(video.localIdentifier) { continue }
+
+                var group = [video]
+
+                for j in (i + 1)..<videos.count {   // ← start at i+1, not 0
+                    let other = videos[j]
+                    if visited.contains(other.localIdentifier) { continue }
+                    if abs(video.duration - other.duration) < 1.0 {
+                        group.append(other)
+                        visited.insert(other.localIdentifier)
+                    }
+                }
+
+                if group.count > 1 {
+                    visited.insert(video.localIdentifier)
+                    groups.append(group)
                 }
             }
-            
-            if group.count > 1 {
-                groups.append(group)
-            }
+            return groups
         }
-        
-        return groups
-    }
 }
 
 

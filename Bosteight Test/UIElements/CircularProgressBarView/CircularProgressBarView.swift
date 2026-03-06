@@ -8,34 +8,46 @@
 import SwiftUI
 
 struct CircularProgressBarView: View {
-    private let progress: Double
-    
-    init(progress: Double) {
-        self.progress = progress
-    }
-    
+
+    let progress: Double
+    @State private var animatedProgress: Double = 0
+
     var body: some View {
         ZStack {
+
             Circle()
-                .stroke(Color.theme.colorF3F4FF.opacity(0.5), style: StrokeStyle(lineWidth: 16))
-                .shadow(color: Color.theme.color5693F9,radius: 13.5)
-            
+                .stroke(
+                    Color.theme.colorF3F4FF.opacity(0.5),
+                    style: StrokeStyle(lineWidth: 16)
+                )
+                .shadow(color: Color.theme.color5693F9, radius: 13.5)
+
             Circle()
-                .trim(from: 0, to: CGFloat(min(self.progress, 1.0)))
-                .stroke(Color.theme.color5369ED, style: StrokeStyle(lineWidth: 16, lineCap: .round))
-                .rotationEffect(Angle(degrees: -90))
-                .animation(.linear, value: progress)
+                .trim(from: 0, to: animatedProgress)
+                .stroke(
+                    Color.theme.color5369ED,
+                    style: StrokeStyle(lineWidth: 16, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
             VStack {
-                Text("\(Int(progress * 100))%")
+                Text("\(Int(animatedProgress * 100))%")
                     .font(.sfSemiBold24)
                     .foregroundStyle(Color.theme.colorFEFEFE)
-                    .multilineTextAlignment(.center)
+                    .contentTransition(.numericText())
+
                 Text("used")
                     .font(.sfRegular13)
                     .foregroundStyle(Color.theme.colorFEFEFE)
-                
             }
-                
+        }
+        .onAppear {
+            animatedProgress = progress
+        }
+        .onChange(of: progress) { newValue in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                animatedProgress = newValue
+            }
         }
     }
 }

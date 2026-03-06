@@ -78,6 +78,7 @@ extension MainViewModel {
                 if let result {
                     scanStore.apply(result)     // store is the single source of truth
                     isScanning = false
+                    loadPreviewImages()
                 }
             }
         }
@@ -178,6 +179,65 @@ extension MainViewModel {
             
         @unknown default:
             accessState = .denied
+        }
+    }
+}
+
+
+extension MainViewModel {
+
+    func loadPreviewImages() {
+        Task {
+            async let media = fetchThumbnails(
+                from: Array(scanStore.scanResult.media.screenshots.allAssets.prefix(6))
+                    + Array(scanStore.scanResult.media.duplicatePhotos.allAssets.prefix(6))
+            )
+            async let videos = fetchThumbnails(
+                from: Array(scanStore.scanResult.videoCompressor.assets.prefix(6))
+            )
+
+            let (mediaImages, videoImages) = await (media, videos)
+            mediaPreviewImages = mediaImages
+            videoPreviewImages = videoImages
+        }
+    }
+
+    private func fetchThumbnails(from assets: [PHAsset]) async -> [UIImage] {
+
+        let targetSize = CGSize(width: 160, height: 160)
+
+        var seen = Set<String>()
+        let unique = assets.filter { seen.insert($0.localIdentifier).inserted }
+
+        return await withTaskGroup(of: (Int, UIImage?).self) { group in
+
+            for (index, asset) in unique.prefix(6).enumerated() {
+                group.addTask {
+                    let image = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+
+                        var resumed = false   // ← guard against double-resume
+
+                        ThumbnailManager.request(
+                            id: asset.localIdentifier,
+                            size: targetSize
+                        ) { image in
+                            guard !resumed else { return }
+                            resumed = true
+                            continuation.resume(returning: image)
+                        }
+                    }
+                    return (index, image)
+                }
+            }
+
+            var results: [(Int, UIImage)] = []
+            for await (index, image) in group {
+                if let image { results.append((index, image)) }
+            }
+
+            return results
+                .sorted { $0.0 < $1.0 }
+                .map(\.1)
         }
     }
 }

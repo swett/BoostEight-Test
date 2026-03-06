@@ -101,7 +101,7 @@ final class MediaCategoryDetailViewModel: ObservableObject {
                 SelectableAsset(
                     id: asset.localIdentifier,
                     size: category.assetSizes[asset.localIdentifier] ?? 0,
-                    isSelected: asset.localIdentifier != best.localIdentifier,
+                    isSelected: false,
                     isBest: asset.localIdentifier == best.localIdentifier
                 )
             }

@@ -15,7 +15,14 @@ struct VideoCompressorListView: View {
         GridItem(.flexible(), spacing: 12)
     ]
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        ZStack(alignment: .top) {
+            Color.theme.colorFFFFFF
+                .ignoresSafeArea(.all)
+            VStack {
+                header
+                cells
+            }
+        }
     }
 }
 
@@ -34,13 +41,16 @@ extension VideoCompressorListView {
                     Image(systemName: "chevron.backward")
                         .foregroundStyle(Color.theme.color2B2B2B)
                 }
+                Spacer()
             }
             Text("Video Compressor")
                 .foregroundStyle(Color.theme.color2B2B2B)
                 .font(.sfSemiBold24)
+                .padding(.top, 10)
             
             BadgesView(iconName: "video_icon_black", text: viewModel.countText)
         }
+        .padding(.horizontal, 16)
     }
 }
 

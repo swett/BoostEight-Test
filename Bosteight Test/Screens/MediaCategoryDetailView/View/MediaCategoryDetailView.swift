@@ -17,9 +17,11 @@ struct MediaCategoryDetailView: View {
                 header
                 content
             }
-            
-            if viewModel.selectedCount > 0 {
-                deleteBar
+            VStack {
+                Spacer()
+                if viewModel.selectedCount > 0 {
+                    deleteBar
+                }
             }
         }
         .alert(
