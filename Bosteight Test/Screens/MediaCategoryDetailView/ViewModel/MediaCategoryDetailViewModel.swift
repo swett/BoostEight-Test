@@ -7,16 +7,17 @@
 
 import Foundation
 import Photos
-
+import Combine
 @MainActor
 final class MediaCategoryDetailViewModel: ObservableObject {
 
     private let router: Routing?
     private let subcategory: MediaSubcategory
-    private let scanStore: ScanStoreProtocol
+    private let scanStore: ScanStore
     private let photoService: PhotoLibraryServiceProtocol
 
     let screenType: MediaCategoryScreenType
+    private var cancellables = Set<AnyCancellable>()
 
     @Published var groups: [AssetGroup] = []
     @Published var gridAssets: [SelectableAsset] = []
@@ -40,7 +41,7 @@ final class MediaCategoryDetailViewModel: ObservableObject {
     init(
         router: Routing? = nil,
         subcategory: MediaSubcategory,
-        scanStore: ScanStoreProtocol,
+        scanStore: ScanStore,
         photoService: PhotoLibraryServiceProtocol
     ) {
         self.router = router
@@ -50,6 +51,7 @@ final class MediaCategoryDetailViewModel: ObservableObject {
         self.screenType = subcategory.screenType
 
         buildData()
+        observeStore()
     }
 
     
@@ -90,24 +92,36 @@ final class MediaCategoryDetailViewModel: ObservableObject {
         let category = scanStore.category(for: subcategory)
         let grouped = scanStore.groupedAssets(for: subcategory)
 
-        groups = grouped.map { group in
+        groups = grouped
+            .filter { $0.count > 1 }  // ← hide groups with only 1 asset left
+            .map { group in
 
-            guard let best = bestAsset(in: group) else {
-                return AssetGroup(id: UUID(), assets: [])
+                guard let best = bestAsset(in: group) else {
+                    return AssetGroup(id: UUID(), assets: [])
+                }
+
+                let mapped = group.map { asset in
+                    SelectableAsset(
+                        id: asset.localIdentifier,
+                        size: category.assetSizes[asset.localIdentifier] ?? 0,
+                        isSelected: false,
+                        isBest: asset.localIdentifier == best.localIdentifier
+                    )
+                }
+
+                return AssetGroup(id: UUID(), assets: mapped)
             }
-
-            let mapped = group.map { asset in
-
-                SelectableAsset(
-                    id: asset.localIdentifier,
-                    size: category.assetSizes[asset.localIdentifier] ?? 0,
-                    isSelected: false,
-                    isBest: asset.localIdentifier == best.localIdentifier
-                )
+            .filter { !$0.assets.isEmpty }  // ← safety: drop empty groups from bestAsset nil case
+    }
+    
+    func observeStore() {
+        scanStore.$scanResult
+            .dropFirst()          // skip initial value — buildData() already called in init
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.buildData()
             }
-
-            return AssetGroup(id: UUID(), assets: mapped)
-        }
+            .store(in: &cancellables)
     }
     
     func toggleSelection(id: String) {

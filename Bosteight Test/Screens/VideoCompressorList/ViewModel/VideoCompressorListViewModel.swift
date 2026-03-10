@@ -7,28 +7,42 @@
 
 import SwiftUI
 import Photos
-
+import Combine
 @MainActor
 final class VideoCompressorListViewModel: ObservableObject {
 
     private let router: Routing?
-    private let scanStore: ScanStoreProtocol
+    private let scanStore: ScanStore  // ← concrete type
 
     @Published var assets: [PHAsset] = []
     @Published var assetSizes: [String: Int64] = [:]
 
+    private var cancellables = Set<AnyCancellable>()
+
     init(
         router: Routing? = nil,
-        scanStore: ScanStoreProtocol
+        scanStore: ScanStore
     ) {
         self.router = router
         self.scanStore = scanStore
 
         loadAssets()
+        observeStore()
+    }
+
+    private func observeStore() {
+        scanStore.$scanResult
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] result in
+                self?.assets = result.videoCompressor.assets
+                self?.assetSizes = result.videoCompressor.assetSizes
+            }
+            .store(in: &cancellables)
     }
 
     private func loadAssets() {
-        let result: VideoCompressorResult = scanStore.scanResult.videoCompressor
+        let result = scanStore.scanResult.videoCompressor
         self.assets = result.assets
         self.assetSizes = result.assetSizes
     }
@@ -43,16 +57,13 @@ final class VideoCompressorListViewModel: ObservableObject {
     }
 
     func didTapAsset(_ asset: PHAsset) {
-        router?.push(
-            .videoCompressorDetail(assetID: asset.localIdentifier)
-        )
+        router?.push(.videoCompressorDetail(assetID: asset.localIdentifier))
     }
-    
+
     func popBack() {
         router?.popLast()
     }
 
-    // Helper
     private func formatBytes(_ bytes: Int64) -> String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useMB, .useGB]

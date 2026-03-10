@@ -12,16 +12,25 @@ struct AssetCellGrid: View {
     let asset: SelectableAsset
     let onTap: () -> Void
 
+    // Mirror grid math: (screenWidth - 16 leading - 16 trailing padding - 12 spacing) / 2
+    private var cellWidth: CGFloat {
+        (UIScreen.main.bounds.width - 16 * 2 - 12) / 2
+    }
+
+    private var cellHeight: CGFloat {
+        cellWidth * (216.0 / 177.0)  // preserve original aspect ratio
+    }
+
     var body: some View {
-
         ZStack(alignment: .bottom) {
-
             AssetThumbnailView(
                 id: asset.id,
-                size: CGSize(width: 177, height: 216)
+                size: CGSize(width: cellWidth, height: cellHeight)
             )
-            .frame(width: 177, height: 216)
+            .frame(width: cellWidth, height: cellHeight)
             .clipped()
+            .cornerRadius(10)
+
             HStack {
                 if asset.isBest {
                     Image("bestBage_icon")
@@ -34,9 +43,9 @@ struct AssetCellGrid: View {
                     .padding(6)
             }
         }
-        .onTapGesture {
-            onTap()
-        }
+        .frame(width: cellWidth, height: cellHeight)
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
     }
 }
 

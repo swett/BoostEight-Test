@@ -81,7 +81,7 @@ struct ContentView: View {
                MediaHomeView(
                    viewModel: MediaHomeViewModel(
                        router: router,
-                       scanResult: scanStore.scanResult
+                       scanStore: scanStore
                    )
                )
 

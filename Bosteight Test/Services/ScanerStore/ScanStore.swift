@@ -10,7 +10,7 @@ import Photos
 import SwiftUI
 
 @MainActor
-final class ScanStore: ScanStoreProtocol {
+class ScanStore: ScanStoreProtocol {
     
     @Published private(set) var scanResult: ScanResult
     

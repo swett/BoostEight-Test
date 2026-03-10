@@ -316,40 +316,6 @@ extension VideoCompressDetailView {
                 }
             }
         }
-
-//       private var finishedVideoThumbnail: some View {
-//           ZStack(alignment: .topTrailing) {
-//               let height: CGFloat = DeviceType.IS_IPHONE_X ? 358 : 458
-//               if let asset = viewModel.asset {
-//                   VideoPlayerView(asset: asset, height: height)
-//                  
-//               } else {
-//                   RoundedRectangle(cornerRadius: 16)
-//                       .fill(Color.gray.opacity(0.15))
-//                       .aspectRatio(16/9, contentMode: .fit)
-//                       .overlay(
-//                           Image(systemName: "video.fill")
-//                               .font(.largeTitle)
-//                               .foregroundStyle(.gray)
-//                       )
-//               }
-//
-//               // Success badge
-////               HStack(spacing: 4) {
-////                   Image(systemName: "checkmark.circle.fill")
-////                       .foregroundStyle(.green)
-////                   Text("Done")
-////                       .font(.caption.weight(.semibold))
-////                       .foregroundStyle(Color.theme.color2B2B2B)
-////               }
-////               .padding(.horizontal, 10)
-////               .padding(.vertical, 6)
-////               .background(.white)
-////               .clipShape(Capsule())
-////               .shadow(color: .black.opacity(0.1), radius: 4)
-////               .padding(12)
-//           }
-//       }
     private func finishedVideoThumbnail(height: CGFloat) -> some View {
             Group {
                 if let asset = viewModel.asset {

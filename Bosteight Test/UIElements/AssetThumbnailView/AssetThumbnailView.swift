@@ -15,14 +15,6 @@ struct AssetThumbnailView: View {
     @State private var image: UIImage?
 
     var body: some View {
-//    #if DEBUG
-//       Rectangle()
-//           .fill(Color.gray.opacity(0.3))
-//           .overlay(
-//               Text(id.prefix(4))
-//                   .font(.caption)
-//           )
-//       #else
         ZStack {
             if let image {
                 Image(uiImage: image)
@@ -32,14 +24,19 @@ struct AssetThumbnailView: View {
                 Color.gray.opacity(0.2)
             }
         }
-        .onAppear {
-            ThumbnailManager.request(
-                id: id,
-                size: size
-            ) { image in
-                self.image = image
+        .task(id: id) {
+            image = await loadThumbnail()
+        }
+    }
+
+    private func loadThumbnail() async -> UIImage? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+            var resumed = false
+            ThumbnailManager.request(id: id, size: size) { image in
+                guard !resumed else { return }
+                resumed = true
+                continuation.resume(returning: image)
             }
         }
-//#endif
     }
 }

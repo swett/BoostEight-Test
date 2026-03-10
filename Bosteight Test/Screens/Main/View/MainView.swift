@@ -23,10 +23,10 @@ struct MainView: View {
         }
         .task {
             guard !didRequestPermission else { return }
-               guard viewModel.accessState == .notDetermined else { return }
-               
-               didRequestPermission = true
-               viewModel.requestPermission()
+            guard viewModel.accessState == .notDetermined else { return }
+            
+            didRequestPermission = true
+            viewModel.requestPermission()
         }
     }
 }
@@ -45,11 +45,11 @@ extension MainView {
                     .font(.sfRegular16)
                 (  Text(viewModel.storageUsedFormatted)
                     .fontWeight(.semibold)
-                    
-                +
-                Text(" of ")
-                +
-                Text(viewModel.storageTotalFormatted))
+                   
+                   +
+                   Text(" of ")
+                   +
+                   Text(viewModel.storageTotalFormatted))
             }
             .foregroundStyle(Color.theme.colorFEFEFE)
             .font(.sfRegular16)
@@ -75,19 +75,18 @@ extension MainView {
                         CategoryCard(
                             type: .videoCompressor,
                             countText: videoCountText,
-                            previewImages: viewModel.videoPreviewImages,
-                            state: viewModel.videoCategoryState
-                        ) {
-                            viewModel.openVideoCompressor()
-                        }
+                            previewAssetIDs: viewModel.videoPreviewIDs,
+                            state: viewModel.videoCategoryState,
+                            action: { viewModel.openVideoCompressor() }
+                        )
+
                         CategoryCard(
                             type: .media(nil),
                             countText: mediaCountText,
-                            previewImages: viewModel.mediaPreviewImages,
-                            state: viewModel.mediaCategoryState
-                        ) {
-                            viewModel.openMedia()
-                        }
+                            previewAssetIDs: viewModel.mediaPreviewIDs,
+                            state: viewModel.mediaCategoryState,
+                            action: { viewModel.openMedia() }
+                        )
                         Spacer(minLength: 90)
                     }
                 }
@@ -110,7 +109,7 @@ extension MainView {
             return "\(viewModel.videoCount) videos • \(formatBytes(viewModel.videoSize))"
         }
     }
-
+    
     private var mediaCountText: String {
         switch viewModel.mediaCategoryState {
         case .locked:
@@ -121,7 +120,7 @@ extension MainView {
             return "\(viewModel.mediaCount) items • \(formatBytes(viewModel.mediaSize))"
         }
     }
-
+    
     private func formatBytes(_ bytes: Int64) -> String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useGB, .useMB]

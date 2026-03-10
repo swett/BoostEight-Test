@@ -18,6 +18,7 @@ final class VideoCompressorDetailViewModel: ObservableObject {
     private let compressionService: VideoCompressionServiceProtocol
     private let estimator: VideoCompressionEstimator
     private let assetLoader: VideoAssetLoader = VideoAssetLoader()
+    private var compressionTask: Task<Void, Never>?
     // MARK: - Published State
     @Published var asset: PHAsset?
     @Published var originalSize: Int64 = 0
@@ -86,22 +87,25 @@ final class VideoCompressorDetailViewModel: ObservableObject {
     // MARK: - Compression
     func startCompression() {
         guard let asset, case .idle = compressionState else { return }
-        
-        Task { @MainActor in
+
+        compressionTask?.cancel()
+        compressionTask = Task { @MainActor in
             for await state in compressionService.compress(asset: asset, quality: selectedQuality) {
-                
+                guard !Task.isCancelled else { break }
+
                 compressionState = state
-                
+
                 if case .finished(let result) = state {
                     compressionResult = result
                     showPostCompressionSheet = true
                 }
-                
             }
         }
     }
     
     func cancelCompression() {
+        compressionTask?.cancel()
+        compressionTask = nil
         compressionService.cancel()
         compressionState = .idle
     }

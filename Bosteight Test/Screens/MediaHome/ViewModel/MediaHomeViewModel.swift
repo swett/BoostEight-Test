@@ -8,50 +8,55 @@
 import Foundation
 import Photos
 import SwiftUI
+import Combine
 
-@MainActor
-final class MediaHomeViewModel: MediaHomeViewModelProtocol  {
-    
-    // MARK: Dependencies
-    
+final class MediaHomeViewModel: MediaHomeViewModelProtocol {
+
     private let router: Routing
-    private let scanResult: ScanResult
-    
-    // MARK: Output
-    
+    private let scanStore: ScanStore  // ← concrete type, not protocol
+
     @Published var items: [MediaHomeItem] = []
-    
-    // MARK: Init
-    
-    init(router: Routing, scanResult: ScanResult) {
+    private var cancellables = Set<AnyCancellable>()
+
+    init(router: Routing, scanStore: ScanStore) {
         self.router = router
-        self.scanResult = scanResult
-        
+        self.scanStore = scanStore
         buildItems()
+        observeStore()
+    }
+
+    private func observeStore() {
+        scanStore.$scanResult
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.buildItems()
+            }
+            .store(in: &cancellables)
     }
 }
 
+// MARK: - Private
 
 private extension MediaHomeViewModel {
-    
+
     func buildItems() {
-        
-        let media = scanResult.media
-        
+        let media = scanStore.scanResult.media
+
         items = [
-            buildItem(.screenshots, media.screenshots),
-            buildItem(.livePhotos, media.livePhotos),
+            buildItem(.screenshots,     media.screenshots),
+            buildItem(.livePhotos,      media.livePhotos),
             buildItem(.screenRecordings, media.screenRecordings),
             buildItem(.duplicatePhotos, media.duplicatePhotos),
-            buildItem(.similarPhotos, media.similarPhotos),
-            buildItem(.similarVideos, media.similarVideos)
+            buildItem(.similarPhotos,   media.similarPhotos),
+            buildItem(.similarVideos,   media.similarVideos)
         ]
         .filter { $0.count > 0 }
     }
-    
-    func buildItem(_ subcategory: MediaSubcategory,
-                   _ category: MediaCategory) -> MediaHomeItem {
-        
+
+    func buildItem(
+        _ subcategory: MediaSubcategory,
+        _ category: MediaCategory
+    ) -> MediaHomeItem {
         MediaHomeItem(
             id: subcategory,
             title: subcategory.title,
@@ -64,13 +69,14 @@ private extension MediaHomeViewModel {
     }
 }
 
+// MARK: - Navigation
 
 extension MediaHomeViewModel {
-    
+
     func openCategory(_ subcategory: MediaSubcategory) {
         router.push(.mediaCategory(subcategory))
     }
-    
+
     func popBack() {
         router.popLast()
     }
